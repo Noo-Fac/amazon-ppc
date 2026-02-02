@@ -8,9 +8,10 @@ from fastapi.responses import StreamingResponse
 from typing import List
 from datetime import date
 
-from models.schemas import NegativeExportRequest, AutoCampaignConfig, BidChangeRequest, BudgetChangeRequest
+from models.schemas import NegativeExportRequest, AutoCampaignConfig, ManualCampaignConfig, BidChangeRequest, BudgetChangeRequest
 from services.negative_generator import generate_negatives_bulk_file
 from services.campaign_generator import generate_auto_campaign_bulk_file, validate_ad_group_config
+from services.manual_campaign_generator import generate_manual_campaign_bulk_file
 from routers.upload import sessions
 
 router = APIRouter()
@@ -201,6 +202,40 @@ async def export_auto_campaign(config: AutoCampaignConfig):
         headers={"Content-Disposition": f"attachment; filename={filename}"}
     )
 
+
+@router.post("/manual-campaign")
+async def export_manual_campaign(config: ManualCampaignConfig):
+    """
+    Generate and download bulk upload file for a manual campaign.
+    """
+    # Basic validation
+    if not config.ad_groups:
+        raise HTTPException(status_code=400, detail="At least one ad group is required")
+        
+    for i, ag in enumerate(config.ad_groups):
+        if not ag.ad_group_name:
+             raise HTTPException(status_code=400, detail=f"Ad Group {i+1} Name is required")
+    
+    # Generate bulk file
+    output = generate_manual_campaign_bulk_file(
+        campaign_name=config.campaign_name,
+        daily_budget=config.daily_budget,
+        bidding_strategy=config.bidding_strategy.value,
+        start_date=config.start_date,
+        ad_groups=[ag.model_dump() for ag in config.ad_groups],
+        portfolio=config.portfolio,
+        placement_bid_adjustment=config.placement_bid_adjustment.model_dump() if config.placement_bid_adjustment else None
+    )
+    
+    # Return as downloadable file
+    safe_name = config.campaign_name.replace(' ', '_').replace('/', '_')[:50]
+    filename = f"manual_campaign_{safe_name}_{date.today().strftime('%Y%m%d')}.xlsx"
+    
+    return StreamingResponse(
+        output,
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={"Content-Disposition": f"attachment; filename={filename}"}
+    )
 
 @router.post("/negatives/preview")
 async def preview_negatives(request: NegativeExportRequest):

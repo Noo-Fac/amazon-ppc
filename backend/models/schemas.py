@@ -166,6 +166,46 @@ class AdGroupConfig(BaseModel):
     complements_bid: Optional[float] = None
 
 
+class MatchType(str, Enum):
+    EXACT = "exact"
+    PHRASE = "phrase"
+    BROAD = "broad"
+
+
+class KeywordConfig(BaseModel):
+    """Configuration for a keyword target."""
+    keyword: str
+    match_type: MatchType = MatchType.EXACT
+    bid: Optional[float] = None
+
+
+class ProductTargetConfig(BaseModel):
+    """Configuration for a product target (ASIN)."""
+    asin: str
+    bid: Optional[float] = None
+
+
+class ManualAdGroupConfig(BaseModel):
+    """Configuration for an ad group in manual campaign."""
+    ad_group_name: str
+    default_bid: float = Field(ge=0.02)
+    skus: List[str] = Field(default=[], description="List of SKUs to advertise")
+    keywords: List[KeywordConfig] = []
+    product_targets: List[ProductTargetConfig] = []
+
+
+class ManualCampaignConfig(BaseModel):
+    """Configuration for manual campaign generation."""
+    campaign_name: str
+    portfolio: Optional[str] = None
+    daily_budget: float = Field(ge=1.0)
+    bidding_strategy: BiddingStrategy = BiddingStrategy.DYNAMIC_DOWN
+    start_date: date
+    targeting_type: str = "keyword"  # "keyword" or "product" - mostly informational for UI, backend handles mixed
+    placement_bid_adjustment: Optional[PlacementBidAdjustment] = None
+    ad_groups: List[ManualAdGroupConfig]
+
+
 class AutoCampaignConfig(BaseModel):
     """Configuration for auto campaign generation."""
     campaign_name: str
